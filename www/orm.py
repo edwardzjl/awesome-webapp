@@ -27,13 +27,14 @@ async def create_pool(loop, **kw):
         **kw: Properties of database connection.
     """
     logging.info('create database connection pool...')
+    # global variable
     global __pool
     __pool = await aiomysql.create_pool(
         host=kw.get('host', 'localhost'),
         port=kw.get('port', 3306),
-        user=kw['edwardlol'],
-        password=kw['900315'],
-        db=kw['ed_playg'],
+        user=kw['user'],
+        password=kw['password'],
+        db=kw['database'],
         charset=kw.get('charset', 'utf8'),
         autocommit=kw.get('autocommit', True),
         maxsize=kw.get('maxsize', 10),
@@ -88,6 +89,9 @@ async def execute(sql, args):
             await cur.close()
         except BaseException as e:
             raise
+        # added
+        finally:
+            conn.close()
         return affected
 
 
@@ -122,7 +126,7 @@ class StringField(Field):
 class BooleanField(Field):
     """A field of boolean content.
     """
-    def __init__(self, name=None, defaut=False):
+    def __init__(self, name=None, default=False):
         super().__init__(name, 'boolean', False, default)
 
 class IntegerField(Field):
