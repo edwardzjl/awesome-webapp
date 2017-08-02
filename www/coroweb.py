@@ -1,8 +1,11 @@
+# coroweb.py
+
 import asyncio, os, inspect, logging, functools
 
 from urllib import parse
 from aiohttp import web
 from apis import APIError
+
 
 def get(path):
     """Define decorator @get('/path')"""
@@ -21,20 +24,28 @@ def post(path):
         @functools.wraps(func)
         def wrapper(*args, **kw):
             return func(*args, **kw)
-        wrapper.__method__ = 'GET'
+        wrapper.__method__ = 'POST'
         wrapper.__route__ = path
         return wrapper
     return decorator
 
+
 def get_required_kw_args(fn):
+    """
+    Get keyword arguments without default value.
+    One must specify these args when calling fn.
+    """
     args = []
     params = inspect.signature(fn).parameters
     for name, param in params.items():
-        if param.kind == inspect.Parameter.KEYWORD_ONLY and param.default == inspect.Parameter.empty
+        if param.kind == inspect.Parameter.KEYWORD_ONLY and param.default == inspect.Parameter.empty:
             args.append(name)
     return tuple(args)
 
 def get_named_kw_args(fn):
+    """
+    Get named keyword arguments.
+    """
     args = []
     params = inspect.signature(fn).parameters
     for name, param in params.items():
@@ -48,13 +59,17 @@ def has_named_kw_args(fn):
         if param.kind == inspect.Parameter.KEYWORD_ONLY:
             return True
 
-def has_var_kw_args(fn):
+def has_var_kw_arg(fn):
     params = inspect.signature(fn).parameters
     for name, param in params.items():
         if param.kind == inspect.Parameter.VAR_KEYWORD:
             return True
 
 def has_request_arg(fn):
+    """
+    Check if there's an argument called 'request'.
+    This argument should be the last argument.
+    """
     sig = inspect.signature(fn)
     params = sig.parameters
     found = False
@@ -69,6 +84,8 @@ def has_request_arg(fn):
 
 
 def add_static(app):
+    """Add the static file path.
+    """
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
     app.router.add_static('/static/', path)
     logging.info('add static %s => %s' % ('/static/', path))
@@ -80,7 +97,7 @@ def add_routes(app, module_name):
         app:
         module_name:
     """
-    n = module.name.rfind('.')
+    n = module_name.rfind('.')
     if n == (-1):
         mod = __import__(module_name, globals(), locals())
     else:
@@ -109,7 +126,7 @@ def add_route(app, fn):
         raise ValueError('@get or @post not defined in %s.' % str(fn))
     if not asyncio.iscoroutinefunction(fn) and not inspect.isgeneratorfunction(fn):
         fn = asyncio.coroutine(fn)
-    logging.info('add route %s %s => %s(%s)' % method, path, fn.__name__, ', '.join(inspect.signature(fn).parameters.keys()))
+    logging.info('add route %s %s => %s(%s)' % (method, path, fn.__name__, ', '.join(inspect.signature(fn).parameters.keys())))
     app.router.add_route(method, path, RequestHandler(app, fn))
 
 
@@ -137,7 +154,7 @@ class RequestHandler(object):
                 if not request.content_type:
                     return web.HTTPBadRequest('Missing Content-type.')
                 ct = request.content_type.lower()
-                if ct.startswith('application/json')
+                if ct.startswith('application/json'):
                     params = await request.json()
                     if not isinstance(params, dict):
                         return web.HTTPBadRequest('JSON body must be object.')
@@ -151,7 +168,7 @@ class RequestHandler(object):
                 qs = request.query_string
                 if qs:
                     kw = dict()
-                    for k, v in parse.parse_qs(qs. True).items():
+                    for k, v in parse.parse_qs(qs, True).items():
                         kw[k] = v[0]
         if kw is None:
             kw = dict(**request.match_info)
@@ -177,7 +194,7 @@ class RequestHandler(object):
                     return web.HTTPBadRequest('Missing argument: %s' % name)
         logging.info('call with args: %s' % str(kw))
         try:
-            r = await self.func(**kw)
+            r = await self._func(**kw)
             return r
         except APIError as e:
             return dict(error=e.error, data=e.data, message=e.message)

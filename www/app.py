@@ -1,3 +1,5 @@
+# app.py
+
 import logging; logging.basicConfig(level=logging.INFO)
 import asyncio, os, json, time
 
@@ -6,7 +8,8 @@ from aiohttp import web
 from jinja2 import Environment, FileSystemLoader
 
 import orm
-from corowen import add_routes, add_static
+from coroweb import add_routes, add_static
+from config import configs
 
 def init_jinja2(app, **kw):
     logging.info('init jinja2...')
@@ -71,7 +74,7 @@ async def response_factory(app, handler):
                 resp.content_type = 'application/json;charset=utf-8'
                 return resp
             else:
-                resp = web.Response(body=app['__template__'].get_template(template).render(**r).encode('utf-8'))
+                resp = web.Response(body=app['__templating__'].get_template(template).render(**r).encode('utf-8'))
                 resp.content_type = 'text/html;charset=utf-8'
                 return resp
         if isinstance(r, int) and r >= 100 and r < 600:
@@ -100,7 +103,7 @@ def datetime_filter(t):
     return u'%s年%s月%s日' % (dt.year, dt.month, dt.day)
 
 async def init(loop):
-    await orm.create_pool(loop=loop, host='127.0.0.1', port=3306, user='www', password='www', db='awesome')
+    await orm.create_pool(loop=loop, **configs.database)
     app = web.Application(loop=loop, middlewares=[
         logger_factory, response_factory
     ])
